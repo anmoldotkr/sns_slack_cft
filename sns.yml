@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Email and Lambda Subscription To An SNS Topic
+
+Parameters:
+  environment:
+    Description: Name of the environment for this stack.
+    Type: String
+    AllowedValues:
+      - dev
+      - qa
+      - stage
+      - prod
+      - shared
+  product:
+    Type: String
+  service:
+    Type: String
+    Default: sns
+  email:
+    Type: String
+
+Resources:
+  emailTopic:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      DisplayName: !Sub "${environment}-${product}-${service}-topic"
+      TopicName: !Sub "${environment}-${product}-${service}-topic"
+
+  emailSubscription:
+    Type: 'AWS::SNS::Subscription'
+    Properties:
+      Endpoint: !Ref email
+      Protocol: email
+      TopicArn: !Ref emailTopic
+
+  lambdaSubscription:
+    Type: 'AWS::SNS::Subscription'
+    Properties:
+      Endpoint: !ImportValue 
+          Fn::Sub:
+            ${environment}-${product}-slack-notification-lambda
+      Protocol: lambda
+      TopicArn: !Ref emailTopic
+
+  lambdaInvokePermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !ImportValue 
+          Fn::Sub:
+            ${environment}-${product}-slack-notification-lambda
+      Principal: 'sns.amazonaws.com'
+      SourceArn: !Ref emailTopic
+
+Outputs:
+  emailTopic:
+    Value: !Ref emailTopic
+    Export:
+      Name: !Sub '${environment}-${product}-${service}-topic'
